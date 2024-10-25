@@ -8,6 +8,10 @@ import re
 
 ################################################################
 for_outliers = input('\nOutlier coefficient:\n')
+for_noise = input('\nNoise coefficient (default=5):\n')
+if not for_noise:
+    for_noise = 5
+################################################################
 def gauss(x, mu, sigma, c, y):
 
     return c * 1 / (sigma * np.sqrt(2*np.pi)) * np.exp(-(x-mu)**2 / (2 * sigma**2)) + y
@@ -293,9 +297,9 @@ class Spectrum():
                 next_point_intensity = line_to_check_next.intensity.max()
                 line_group = [current_point_intensity, previous_point_intensity, next_point_intensity]
                 line_group_mean = np.array(line_group).mean()
-                print(f"line group mean intensity: {line_group_mean}")
-                is_not_in_noise = current_point_intensity > continuum_around_point*1.9
-                is_not_anomalous = current_point_intensity < line_group_mean*2
+                print(f"line group mean intensity: {line_group_mean}")               #\
+                is_not_in_noise = current_point_intensity > continuum_around_point*5 # |====> adjust peaking out of noise/bakground
+                is_not_anomalous = current_point_intensity < line_group_mean*2       #/
                 print(f"line is strong enough: {is_not_in_noise}")
                 print(f"line is not anomalous: {is_not_anomalous}")
                 if (possible_line_is_good and is_not_anomalous) and is_not_in_noise:
