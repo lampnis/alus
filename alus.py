@@ -8,7 +8,7 @@ import re
 
 ################################################################
 for_outliers = input('\nOutlier coefficient:\n')
-for_noise = input('\nNoise coefficient (default=5):\n')
+for_noise = int(input('\nNoise coefficient (default=5):\n'))
 if not for_noise:
     for_noise = 5
 ################################################################
@@ -247,7 +247,7 @@ class Spectrum():
         progressions = list(found_lines.values())
         progression_idxs = range(len(progressions))
         position_idxs = [range(len(progressions[progression_idx])) for progression_idx in progression_idxs]
-        clean_lines = {key: [] for key, value in found_lines.items()}
+        clean_lines = {key: [] for key, _ in found_lines.items()}
 
         for progression_idx in progression_idxs:
 
@@ -256,23 +256,20 @@ class Spectrum():
             for position_idx in position_idxs[progression_idx]:
 
                 if position_idx == 0:
-                    previous_full_point = progressions[progression_idx].iloc[position_idx + 2]
-                    previous_point_name = progressions[progression_idx].iloc[position_idx-1].name
-
+                    previous_point_name = progressions[progression_idx].iloc[position_idx+2].name
                 else:
-                    previous_full_point = progressions[progression_idx].iloc[position_idx-1]
                     previous_point_name = progressions[progression_idx].iloc[position_idx-1].name
 
                 full_point = progressions[progression_idx].iloc[position_idx]
                 point_name = progressions[progression_idx].iloc[position_idx].name
 
                 if position_idx == len(position_idxs[progression_idx])-1:
-                    next_full_point = progressions[progression_idx].iloc[position_idx-2]
+                    next_point_name = progressions[progression_idx].iloc[position_idx-2].name
                 else:
                     next_point_name = progressions[progression_idx].iloc[position_idx+1].name
 
                 print(f'got point {point_name} with energy {full_point}')
-                continuum_around_point = continuum.iloc[point_name-100:point_name+100]['intensity'].mean()
+                continuum_around_point = continuum.iloc[point_name-30:point_name+30]['intensity'].mean()
                 print(f"continuum level around point:\n{continuum_around_point}\n")
                 possible_line = spectrum.iloc[point_name-points_around:point_name+points_around+1]
                 possible_line_previous = spectrum.iloc[previous_point_name-points_around:previous_point_name+points_around+1]
@@ -286,8 +283,8 @@ class Spectrum():
                 print(f'max intensity is at point:\n{line_to_check.max_index}')
                 print(f'part of the line before the max index:\n{line_to_check.before_max}')
                 print(f'part of the line after the max index:\n{line_to_check.after_max}')
-                print(line_to_check.good_before_max)
-                print(line_to_check.good_after_max)
+                print(f"Line good before maxpoint:\n{line_to_check.good_before_max}\n\n")
+                print(f"Line good after maxpoint:\n{line_to_check.good_after_max}\n\n")
                 possible_line_is_good = line_to_check.good_before_max and line_to_check.good_after_max
                 print(possible_line_is_good)
 
@@ -297,9 +294,9 @@ class Spectrum():
                 next_point_intensity = line_to_check_next.intensity.max()
                 line_group = [current_point_intensity, previous_point_intensity, next_point_intensity]
                 line_group_mean = np.array(line_group).mean()
-                print(f"line group mean intensity: {line_group_mean}")               #\
-                is_not_in_noise = current_point_intensity > continuum_around_point*5 # |====> adjust peaking out of noise/bakground
-                is_not_anomalous = current_point_intensity < line_group_mean*2       #/
+                print(f"line group mean intensity: {line_group_mean}")                       #\
+                is_not_in_noise = current_point_intensity > continuum_around_point*for_noise # |====> adjust peaking out of noise/bakground
+                is_not_anomalous = current_point_intensity < line_group_mean*2               #/
                 print(f"line is strong enough: {is_not_in_noise}")
                 print(f"line is not anomalous: {is_not_anomalous}")
                 if (possible_line_is_good and is_not_anomalous) and is_not_in_noise:
@@ -419,7 +416,7 @@ class SpectrumProcessor():
         Helper regex method for finding spectrum file in a kit.
         """
         for item in everything_in_kit:
-                is_spectrum_file = bool(re.fullmatch(r".*.dpt", item))
+                is_spectrum_file = bool(re.fullmatch(r".*.dpt|.*.DPT", item))
                 if is_spectrum_file:
                     print(f'found spectrum {item}')
                     return item
