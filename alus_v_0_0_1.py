@@ -183,6 +183,26 @@ class Spectrum():
     
         return j_pprimes
     
+    def find_peaks(self, idx_min, idx_max):
+        """
+        finds peaks by checking
+        if the adjacent intensities are
+        smaller than the intensity of the
+        point being checked.
+        efficient when applied to
+        small slices of spectrum.
+        """
+        spectrum = self.create_spectrum()
+        s = spectrum[idx_min:idx_max+1]
+
+        s.loc[:, 'intensity'] = np.where(
+            (s['intensity'].shift(1) < s['intensity']) & (s['intensity'] > s['intensity'].shift(-1)),
+            s['intensity'], 
+            np.nan
+        )
+
+        return s
+
     def find_nearest_intensity(self, value):
         """
         finds the nearest experimental spectrum
@@ -190,25 +210,28 @@ class Spectrum():
         """
         s = self.create_spectrum()
         energy = s['energy']
-        intensity = s['intensity']
+        # intensity = s['intensity']
         idx = (np.abs(energy - value)).argmin(skipna=True)
         points_around = 4
 
         try:
+            
+            # for shift in range(points_around + 1):
+            #     possible_intensities = intensity[idx-points_around+shift:idx+points_around+1+shift]
+            #     possible
 
-            for shift in range(points_around + 1):
-                possible_intensities = intensity[idx-points_around+shift:idx+points_around+1+shift]
+            #     print(f"Checking for max in\n{possible_intensities}")
+            #     max_from_possible = possible_intensities.max()
+            #     not_good = max_from_possible == possible_intensities.iloc[0] or max_from_possible == possible_intensities.iloc[-1]
 
-                print(f"Checking for max in\n{possible_intensities}")
-                max_from_possible = possible_intensities.max()
-                not_good = max_from_possible == possible_intensities.iloc[0] or max_from_possible == possible_intensities.iloc[-1]
+            #     if not not_good:
+            #         break
 
-                if not not_good:
-                    break
-
-            idx_max = possible_intensities[possible_intensities == max_from_possible].index[0]
-            max_row = s.iloc[idx_max]
-            return max_row
+            possible_intensities = self.find_peaks(idx-points_around, idx+points_around)
+            print('see if possible_intensities are correct?')
+            print(possible_intensities)
+            closest_possible_idx = (np.abs(possible_intensities['energy'] - value)).idxmin(skipna=True)
+            return s.iloc[closest_possible_idx]
         
         except IndexError:
 
@@ -260,10 +283,6 @@ class Spectrum():
         found_lines_keys = list(found_lines.keys())
         points_around = 4
         energy = self.get_energy()
-        continuum = pd.DataFrame({
-            'energy': energy,
-            'intensity': self.get_continuum()
-        })
         spectrum = self.create_spectrum()
         progressions = list(found_lines.values())
         progression_idxs = range(len(progressions))
@@ -290,7 +309,7 @@ class Spectrum():
                     next_point_name = progressions[progression_idx].iloc[position_idx+1].name
 
                 print(f'got point {point_name} with energy {full_point}')
-                continuum_around_point = continuum.iloc[point_name-30:point_name+30]['intensity'].mean()
+                continuum_around_point = self.find_secondary_continuum(point_name, 30)['intensity'].mean()
                 print(f"continuum level around point:\n{continuum_around_point}\n")
                 possible_line = spectrum.iloc[point_name-points_around:point_name+points_around+1]
                 possible_line_previous = spectrum.iloc[previous_point_name-points_around:previous_point_name+points_around+1]
@@ -321,36 +340,77 @@ class Spectrum():
                 print(f"line is strong enough: {is_not_in_noise}")
                 print(f"line is not anomalous: {is_not_anomalous}")
                 if (possible_line_is_good and is_not_anomalous) and is_not_in_noise:
-                    print('possible line is good')
+                    print('possible line is good\n\n')
                     clean_lines[found_lines_keys[progression_idx]].append(line_to_check.line)
                 else:
-                    print("================================== 2nd try ==============================")
-                    print("Trying with shortening the line from both sides")
-                    another_line = SpectralLine(spectrum.iloc[point_name - (points_around-1):point_name + (points_around)])
-                    another_line_previous = SpectralLine(spectrum.iloc[previous_point_name - (points_around-1):previous_point_name + (points_around)])
-                    another_line_next = SpectralLine(spectrum.iloc[next_point_name - (points_around-1):next_point_name + (points_around)])
-                    print(f'possible line is:\n{another_line.line}')
-                    print(f'max intensity is at point:\n{another_line.max_index}')
-                    print(f'part of the line before the max index:\n{another_line.before_max}')
-                    # print(type(line_to_check.before_max))
-                    print(f'part of the line after the max index:\n{another_line.after_max}')
-                    # print(type(another_line.after_max))
-                    print(another_line.good_before_max)
-                    print(another_line.good_after_max)
-                    print("----------continuum and anomaly check---------------")
-                    current_another_point_intensity = another_line.intensity.max()
-                    previous_another_point_intensity = another_line_previous.intensity.max()
-                    next_another_point_intensity = another_line_next.intensity.max()
-                    another_line_group = [previous_another_point_intensity, current_another_point_intensity, next_another_point_intensity]
-                    another_line_group_mean = np.array(another_line_group).mean()
-                    another_line_is_good = another_line.good_before_max and another_line.good_after_max
-                    another_line_is_not_anomalous = current_another_point_intensity < another_line_group_mean*1.9
-                    print(another_line_is_good and another_line_is_not_anomalous)
-                    if (another_line_is_good and another_line_is_not_anomalous) and is_not_in_noise:
-                        clean_lines[found_lines_keys[progression_idx]].append(another_line.line)
-                    else:
-                        print('line was bad after all... :(')
-                        clean_lines[found_lines_keys[progression_idx]].append(np.nan)
+                    points_around_counter = points_around * 2
+                    try_number = 2
+                    sides = ['left', 'right']
+                    side = sides[0]
+                    points_around_left = points_around_counter / 2
+                    points_around_right = points_around_counter / 2
+                    good_before_max_previous_try = line_to_check.good_before_max
+                    good_after_max_previous_try = line_to_check.good_after_max
+                    while points_around_counter >= 2:
+                        
+                        print('\n!!! PARAMETER TEST FOR WHILE LOOP !!!')
+                        print(f"points_around_counter: {points_around_counter}")
+                        print(f"try_number: {try_number}")
+                        print(f"side: {side}")
+                        print(f"points_around_left: {points_around_left}")
+                        print(f"points_around_right: {points_around_right}")
+                        print('!!! PARAMETER TEST FOR WHILE LOOP !!!\n')
+
+
+                        if try_number > 6:
+                            print("Line was bad after all :(\n\n")
+                            clean_lines[found_lines_keys[progression_idx]].append(np.nan)
+                            break
+                        print(f"================================== try #{try_number} ==============================")
+                        print("Line was still bad")
+                        print(f"Trying with shortening the line from {side} side")
+
+                        if good_before_max_previous_try:
+                            points_around_left -= 1
+                            side = sides[1]
+                        else:
+                            points_around_right -= 1
+                            side = sides[0]
+
+                        another_line = SpectralLine(spectrum.iloc[int(point_name - points_around_left):int(point_name + points_around_right+1)])
+                        another_line_previous = SpectralLine(spectrum.iloc[int(previous_point_name - points_around_left):int(previous_point_name + points_around_right+1)])
+                        another_line_next = SpectralLine(spectrum.iloc[int(next_point_name - points_around_left):int(next_point_name + points_around_right+1)])
+                        print(f'possible line is:{another_line.line}')
+                        print(f'max intensity is at point:{another_line.max_index}')
+                        print(f'part of the line before the max index:{another_line.before_max}')
+                        # print(type(line_to_check.before_max))
+                        print(f'part of the line after the max index:{another_line.after_max}')
+                        # print(type(another_line.after_max))
+                        print(another_line.good_before_max)
+                        print(another_line.good_after_max)
+                        print("----------continuum and anomaly check---------------")
+                        current_another_point_intensity = another_line.intensity.max()
+                        previous_another_point_intensity = another_line_previous.intensity.max()
+                        next_another_point_intensity = another_line_next.intensity.max()
+                        another_line_group = [previous_another_point_intensity, current_another_point_intensity, next_another_point_intensity]
+                        another_line_group_mean = np.array(another_line_group).mean()
+                        another_line_is_good = another_line.good_before_max and another_line.good_after_max
+                        another_not_in_noise = current_another_point_intensity > continuum_around_point*for_noise
+                        another_line_is_not_anomalous = current_another_point_intensity < another_line_group_mean*1.9
+                        print(another_line_is_good and another_line_is_not_anomalous)
+                        if (another_line_is_good and another_line_is_not_anomalous) and another_not_in_noise:
+                            print("Line finally Good!!!\n\n")
+                            clean_lines[found_lines_keys[progression_idx]].append(another_line.line)
+                            break
+                        elif points_around_counter > 2:
+                            try_number += 1
+                            good_before_max_previous_try = another_line.good_before_max
+                            good_after_max_previous_try = another_line.good_after_max
+                            continue
+                        else:
+                            print("Line was bad after all :(\n\n")
+                            clean_lines[found_lines_keys[progression_idx]].append(np.nan)
+                            break
         
         return clean_lines
     
