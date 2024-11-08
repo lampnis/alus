@@ -1,6 +1,8 @@
 ## latest changes in version 0.0.1
 Changed how lines are chosen for gaussian approximation.
+
 Also changed the noise out which the line peaking is tested.
+
 Added `for_noise` changable parameter in the beginning of the script
 
 # alus
