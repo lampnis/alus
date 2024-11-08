@@ -8,7 +8,7 @@ import re
 
 ################################################################
 for_outliers = input('\nOutlier coefficient:\n')
-for_noise = int(input('\nNoise coefficient (default=5):\n'))
+for_noise = float(input('\nNoise coefficient (default=5):\n'))
 if not for_noise:
     for_noise = 5
 ################################################################
@@ -210,22 +210,10 @@ class Spectrum():
         """
         s = self.create_spectrum()
         energy = s['energy']
-        # intensity = s['intensity']
         idx = (np.abs(energy - value)).argmin(skipna=True)
         points_around = 4
 
         try:
-            
-            # for shift in range(points_around + 1):
-            #     possible_intensities = intensity[idx-points_around+shift:idx+points_around+1+shift]
-            #     possible
-
-            #     print(f"Checking for max in\n{possible_intensities}")
-            #     max_from_possible = possible_intensities.max()
-            #     not_good = max_from_possible == possible_intensities.iloc[0] or max_from_possible == possible_intensities.iloc[-1]
-
-            #     if not not_good:
-            #         break
 
             possible_intensities = self.find_peaks(idx-points_around, idx+points_around)
             print('see if possible_intensities are correct?')
@@ -341,7 +329,16 @@ class Spectrum():
                 line_group_mean = np.array(line_group).mean()
                 print(f"line group mean intensity: {line_group_mean}")                       #\
                 is_not_in_noise = current_point_intensity > continuum_around_point*for_noise # |====> adjust peaking out of noise/bakground
-                is_not_anomalous = current_point_intensity < line_group_mean*2               #/
+                print(f"Line has to be larger than {continuum_around_point*for_noise}")      #/
+                anomaly_factors = [2.0, 2.5, 3.0, 3.5, 4.0]
+                
+                is_not_anomalous = False
+                for factor in anomaly_factors:
+                    if current_point_intensity < line_group_mean*factor:
+                        is_not_anomalous = True
+                        print(f"Anomaly test passed with factpr: {factor}")
+                        break
+
                 print(f"line is strong enough: {is_not_in_noise}")
                 print(f"line is not anomalous: {is_not_anomalous}")
                 if (possible_line_is_good and is_not_anomalous) and is_not_in_noise:
@@ -400,8 +397,17 @@ class Spectrum():
                         another_line_group = [previous_another_point_intensity, current_another_point_intensity, next_another_point_intensity]
                         another_line_group_mean = np.array(another_line_group).mean()
                         another_line_is_good = another_line.good_before_max and another_line.good_after_max
+                        print(f"Line has to be larger than {continuum_around_point*for_noise}")
                         another_not_in_noise = current_another_point_intensity > continuum_around_point*for_noise
-                        another_line_is_not_anomalous = current_another_point_intensity < another_line_group_mean*1.9
+                        
+                        another_line_is_not_anomalous = False
+                        for factor in anomaly_factors:
+                            if current_another_point_intensity < another_line_group_mean*factor:
+                                another_line_is_not_anomalous = True
+                                print(f"Passed anomaly test with factor {factor}!")
+                                break
+                        
+                        # another_line_is_not_anomalous = current_another_point_intensity < another_line_group_mean*1.9
                         print(another_line_is_good and another_line_is_not_anomalous)
                         if (another_line_is_good and another_line_is_not_anomalous) and another_not_in_noise:
                             print("Line finally Good!!!\n\n")
@@ -601,7 +607,7 @@ class SpectrumProcessor():
         return to_return
 
 ##################################################################
-processor = SpectrumProcessor('raw', 'fin')
+processor = SpectrumProcessor('raw_test', 'fin_test')
 print(f'\nTest for function "establish_kits()":\n{processor.establish_kits()}')
 print(f'\nTest for function "get_spectra_paths()":\n{processor.get_spectra_paths()}')
 print(f'\nTest for function "get_progressions_paths()":\n{processor.get_progressions_paths()}')
