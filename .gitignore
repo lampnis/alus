@@ -8,4 +8,4 @@ spectralyze.html
 output.txt
 fin_test/
 raw_test/
-
+__pycache__/
