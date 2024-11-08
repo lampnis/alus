@@ -237,6 +237,11 @@ class Spectrum():
 
             print("Index out of spectrum, returning nans!")
             return pd.Series({'energy': np.nan, 'intensity': np.nan})
+        
+        except ValueError:
+
+            print("Empty DATAFRAME!!! adding nans!")
+            return pd.Series({'energy': np.nan, 'intensity': np.nan})
     
     def get_progression_intensities(self):
         """
