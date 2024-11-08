@@ -1,0 +1,11 @@
+build/
+dist/
+alus.onefile-build/
+alus.dist/
+alus.build/
+alus.spec
+spectralyze.html
+output.txt
+fin_test/
+raw_test/
+
