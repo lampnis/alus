@@ -607,7 +607,7 @@ class SpectrumProcessor():
         return to_return
 
 ##################################################################
-processor = SpectrumProcessor('raw_test', 'fin_test')
+processor = SpectrumProcessor('raw', 'fin')
 print(f'\nTest for function "establish_kits()":\n{processor.establish_kits()}')
 print(f'\nTest for function "get_spectra_paths()":\n{processor.get_spectra_paths()}')
 print(f'\nTest for function "get_progressions_paths()":\n{processor.get_progressions_paths()}')
